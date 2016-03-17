@@ -11,17 +11,20 @@ import re
 import subprocess
 import sys
 import time
+import urllib2
 
 debug = False
 
-jenkinsHome = os.getenv("JENKINS_HOME")
-jobName = os.getenv("JOB_NAME")
-buildNum = os.getenv("BUILD_NUMBER")
+jenkinsHome = os.environ["JENKINS_HOME"]
+jobName = os.environ["JOB_NAME"]
+jobUrl = os.environ["JOB_URL"]
+buildNum = os.environ["BUILD_NUMBER"]
 log = "%s/jobs/%s/builds/%s/log" % (jenkinsHome, jobName, buildNum)
 
-if not os.path.isfile(log):
-  print 'Could not find the build log'
-  sys.exit(1)
+try:
+  logFile = open(log)
+except IOError:
+  logFile = urllib2.urlopen("%s/%s/consoleText" % (jobUrl, buildNum))
 
 regexp = re.compile(r"(?:deadcode: )?(?:./)?([-a-zA-Z_/]*\.go):([0-9]+)(?::[0-9]+)?: (.*)")
 # 3-level deep map.
@@ -29,14 +32,13 @@ regexp = re.compile(r"(?:deadcode: )?(?:./)?([-a-zA-Z_/]*\.go):([0-9]+)(?::[0-9]
 # 2nd level: line num -> comments for this line
 # 3rd level: comment -> True (to remove duplicate comments)
 comments = {}
-with open(log) as f:
-  for line in f:
-    m = regexp.match(line)
-    if not m:
-      #print "no match %r" % line
-      continue
-    path, linenum, msg = m.groups()
-    comments.setdefault(path, {}).setdefault(linenum, {}).setdefault(msg, True)
+for line in logFile:
+  m = regexp.match(line)
+  if not m:
+    #print "no match %r" % line
+    continue
+  path, linenum, msg = m.groups()
+  comments.setdefault(path, {}).setdefault(linenum, {}).setdefault(msg, True)
 
 if not comments:
   sys.exit(0)
@@ -49,8 +51,7 @@ url = ("http://gerrit/a/changes/%s/revisions/%s/review"
        % (os.getenv("GERRIT_CHANGE_NUMBER"), os.getenv("GERRIT_PATCHSET_NUMBER")))
 
 review = {
-  "message": ("See the full build log at %s"
-              % os.path.join(os.getenv("JOB_URL"), buildNum, "console")),
+  "message": ("See the full build log at %s" % os.path.join(jobUrl, buildNum, "console")),
   "labels": {"Verified": -1},
   "comments": comments,
 }
