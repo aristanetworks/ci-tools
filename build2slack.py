@@ -33,14 +33,19 @@ def dirs(files):
 def getNotifiees(files):
   notifiees = set()
   for d in dirs(files):
-    try:
+    ancestor = d
+    settings = None
+    while not settings:
+      settingsFile = os.path.join(ancestor, PACKAGE_SETTINGS_FILE)
+      if not os.path.isfile(settingsFile):
+        if ancestor:
+          ancestor = os.path.dirname(ancestor)
+          continue
+        break
       with open(os.path.join(d, PACKAGE_SETTINGS_FILE)) as settingsFile:
         settings = yaml.load(settingsFile.read())
         for channel in settings.get('notifications', {}).get('slack', {}).get('channels', []):
           notifiees.add("#" + channel)
-    except IOError:
-      # No config for this package.
-      continue
   return notifiees
 
 
