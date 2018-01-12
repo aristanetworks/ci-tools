@@ -55,6 +55,7 @@ def notify(failed=False):
   url = getEnv("GERRIT_CHANGE_URL")
   titleLink = url + "/" + patchset
   message = base64.b64decode(getEnv("GERRIT_CHANGE_COMMIT_MESSAGE")).split("\n")[0]
+  message += '\n_by ' + getEnv("GERRIT_CHANGE_OWNER_EMAIL").split("@")[0] + "_"
   payload = {"username": "jenkins",
              "icon_url": "https://a.slack-edge.com/205a/img/services/jenkins-ci_72.png"}
   payload["attachments"] = [{"color": "danger" if failed else "good",
